@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NAND Simulator CTF</title>
+    <style>
+        body { background-color: #111; color: #fff; font-family: Arial; text-align: center; }
+        canvas { background-color: #333; border: 2px solid #aaa; margin-top: 20px; }
+        button { margin: 10px; padding: 10px 30px; font-size: 16px; border-radius: 10px; cursor: pointer;}
+        #result { font-size: 20px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>NAND Simulator CTF</h1>
+
+    <button onclick="submitCircuit()">Submit Circuit</button>
+    <button onclick="addIntermediate()">Add Intermediate Node</button>
+    <button onclick="resetCircuit()">Reset Circuit</button>
+    <p id="result"></p>
+    <div style="margin-bottom: 15px; color: #fff; font-weight: bold;">
+    Sometimes all you need is just two wires: one to link the start, and one to connect the end. Don't overthink. The flag lies in simplicity.
+    </div>
+
+    <canvas id="canvas" width="900" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        let nodes = [
+            {id: 1, x: 100, y: 500},
+            {id: 2, x: 250, y: 500},
+            {id: 3, x: 400, y: 300},
+            {id: 4, x: 550, y: 500},
+            {id: 5, x: 750, y: 100}
+        ];
+
+        let connections = [];
+        let fromNode = null;
+        let nodeCounter = 6;
+
+        function drawNodes() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            connections.forEach(conn => {
+                const from = nodes.find(n => n.id === conn[0]);
+                const to = nodes.find(n => n.id === conn[1]);
+                ctx.beginPath();
+                ctx.moveTo(from.x, from.y);
+                ctx.lineTo(to.x, to.y);
+                ctx.strokeStyle = "#ff0";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            });
+
+            nodes.forEach(n => {
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, 25, 0, 2 * Math.PI);
+                ctx.fillStyle = "#ffcc00";
+                ctx.fill();
+                ctx.strokeStyle = "#000";
+                ctx.stroke();
+                ctx.fillStyle = "#000";
+                ctx.fillText(n.id, n.x - 5, n.y + 5);
+            });
+        }
+
+        canvas.addEventListener("click", function(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            nodes.forEach(n => {
+                const dist = Math.hypot(n.x - x, n.y - y);
+                if (dist <= 25) {
+                    if (!fromNode) {
+                        fromNode = n.id;
+                    } else {
+                        if (fromNode !== n.id) {
+                            connections.push([fromNode, n.id]);
+                            fromNode = null;
+                            drawNodes();
+                        }
+                    }
+                }
+            });
+        });
+
+        function submitCircuit() {
+            fetch('/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({connections: connections})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById("result").innerText = "✅ Flag: " + data.flag;
+                } else {
+                    document.getElementById("result").innerText = "❌ Circuit invalid. Try again!";
+                }
+            });
+        }
+
+        function addIntermediate() {
+            const newNode = {
+                id: nodeCounter,
+                x: Math.random() * 800 + 50,
+                y: Math.random() * 500 + 50
+            };
+            nodes.push(newNode);
+            nodeCounter++;
+            drawNodes();
+        }
+
+        function resetCircuit() {
+            nodes = [
+                {id: 1, x: 100, y: 500},
+                {id: 2, x: 250, y: 500},
+                {id: 3, x: 400, y: 300},
+                {id: 4, x: 550, y: 500},
+                {id: 5, x: 750, y: 100}
+            ];
+            connections = [];
+            nodeCounter = 6;
+            drawNodes();
+            document.getElementById("result").innerText = "";
+        }
+
+        drawNodes();
+    </script>
+</body>
+</html>
